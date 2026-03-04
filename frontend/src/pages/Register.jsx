@@ -28,7 +28,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const response = await authAPI.register(formData);
+      const response = await authAPI.register({ ...formData, role: 'seller' });
       login(response.data.user, response.data.token);
       navigate('/dashboard');
     } catch (err) {

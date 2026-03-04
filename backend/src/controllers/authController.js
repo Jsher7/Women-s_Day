@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 // Register User
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, businessName, businessCategory } = req.body;
+    const { name, email, password, businessName, businessCategory, role } = req.body;
 
     // Check if user exists
     let user = await User.findOne({ email });
@@ -24,6 +24,7 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       businessName,
       businessCategory,
+      role: role || 'buyer',
     });
 
     await user.save();
@@ -33,7 +34,7 @@ exports.register = async (req, res) => {
       expiresIn: '7d',
     });
 
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name, role: user.role } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -58,7 +59,7 @@ exports.login = async (req, res) => {
       expiresIn: '7d',
     });
 
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name, role: user.role } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

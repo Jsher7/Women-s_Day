@@ -4,7 +4,7 @@ const MarketDataset = require('../models/MarketDataset');
 // Calculate cosine similarity
 const cosineSimilarity = (vecA, vecB) => {
   if (!vecA || !vecB || vecA.length === 0 || vecB.length === 0) return 0;
-  
+
   let dotProduct = 0;
   let magnitudeA = 0;
   let magnitudeB = 0;
@@ -19,40 +19,112 @@ const cosineSimilarity = (vecA, vecB) => {
   return denominator === 0 ? 0 : dotProduct / denominator;
 };
 
-// Calculate smart pricing
-const calculateSmartPrice = (similarProducts) => {
-  if (!similarProducts || similarProducts.length === 0) {
-    return { minPrice: 0, maxPrice: 0, suggestedPrice: 0, confidenceScore: 0 };
+// ============================================================
+// SMART AI PRICING ENGINE
+// Factors in: material cost, labor hours, and marketplace data
+// ============================================================
+
+const HOURLY_RATE = 150;          // ₹/hour — fair wage for handmade work
+const DEFAULT_PROFIT_MARGIN = 0.4; // 40% minimum profit margin over costs
+const COST_WEIGHT = 0.4;          // 40% weight to cost-based pricing
+const MARKET_WEIGHT = 0.6;        // 60% weight to market-based pricing
+
+/**
+ * Calculate cost-based floor price.
+ * This ensures the seller never prices below their material + labor costs.
+ */
+const calculateCostBasedPrice = (materialCost, hoursSpent) => {
+  const laborCost = hoursSpent * HOURLY_RATE;
+  const totalCost = materialCost + laborCost;
+  const floorPrice = totalCost * (1 + DEFAULT_PROFIT_MARGIN);
+  return { totalCost, laborCost, floorPrice: Math.round(floorPrice) };
+};
+
+/**
+ * Calculate market-based price from similar products.
+ * Uses similarity-weighted average with outlier removal.
+ */
+const calculateMarketBasedPrice = (similarItems) => {
+  if (!similarItems || similarItems.length === 0) {
+    return { marketPrice: 0, minPrice: 0, maxPrice: 0, medianPrice: 0, confidence: 0 };
   }
 
-  const prices = similarProducts.map((p) => p.price).sort((a, b) => a - b);
+  const prices = similarItems.map((p) => p.price).sort((a, b) => a - b);
 
   // Remove outliers (bottom 10% and top 10%)
-  const startIdx = Math.ceil(prices.length * 0.1);
-  const endIdx = Math.floor(prices.length * 0.9);
-  const filteredPrices = prices.slice(startIdx, endIdx);
+  const startIdx = Math.max(0, Math.ceil(prices.length * 0.1));
+  const endIdx = Math.min(prices.length, Math.floor(prices.length * 0.9));
+  const filtered = prices.length > 4 ? prices.slice(startIdx, endIdx) : prices;
 
-  const minPrice = filteredPrices[0] || prices[0];
-  const maxPrice = filteredPrices[filteredPrices.length - 1] || prices[prices.length - 1];
+  const minPrice = filtered[0];
+  const maxPrice = filtered[filtered.length - 1];
+  const medianPrice = filtered[Math.floor(filtered.length / 2)];
 
-  // Weighted average based on similarity scores
+  // Similarity-weighted average
   let weightedSum = 0;
   let totalWeight = 0;
-
-  similarProducts.forEach((p, idx) => {
-    const weight = Math.max(0, p.similarity);
-    weightedSum += p.price * weight;
+  similarItems.forEach((item) => {
+    const weight = Math.pow(Math.max(0, item.similarity), 2); // Square similarity for stronger weighting
+    weightedSum += item.price * weight;
     totalWeight += weight;
   });
 
-  const suggestedPrice = totalWeight > 0 ? weightedSum / totalWeight : (minPrice + maxPrice) / 2;
-  const confidenceScore = Math.min(100, similarProducts.length * 8);
+  const marketPrice = totalWeight > 0 ? weightedSum / totalWeight : medianPrice;
+
+  // Confidence based on quantity and quality of matches
+  const quantityScore = Math.min(50, similarItems.length * 5);
+  const avgSimilarity = similarItems.reduce((s, p) => s + p.similarity, 0) / similarItems.length;
+  const qualityScore = Math.min(50, Math.round(avgSimilarity * 100));
+  const confidence = Math.min(100, quantityScore + qualityScore);
 
   return {
+    marketPrice: Math.round(marketPrice),
     minPrice: Math.round(minPrice),
     maxPrice: Math.round(maxPrice),
-    suggestedPrice: Math.round(suggestedPrice),
-    confidenceScore: Math.round(confidenceScore),
+    medianPrice: Math.round(medianPrice),
+    confidence,
+  };
+};
+
+/**
+ * Main smart pricing function.
+ * Blends cost-based and market-based pricing.
+ */
+const calculateSmartPrice = (materialCost, hoursSpent, similarItems) => {
+  const costBased = calculateCostBasedPrice(materialCost, hoursSpent);
+  const marketBased = calculateMarketBasedPrice(similarItems);
+
+  let suggestedPrice;
+  let confidenceScore;
+
+  if (marketBased.marketPrice > 0 && similarItems.length > 0) {
+    // Blend: cost-based (40%) + market-based (60%)
+    const blendedPrice = (costBased.floorPrice * COST_WEIGHT) + (marketBased.marketPrice * MARKET_WEIGHT);
+
+    // Ensure we never suggest below cost floor
+    suggestedPrice = Math.max(costBased.floorPrice, Math.round(blendedPrice));
+    confidenceScore = marketBased.confidence;
+  } else {
+    // No market data — use cost-based with default margin
+    suggestedPrice = costBased.floorPrice;
+    confidenceScore = 15; // Low confidence without market data
+  }
+
+  return {
+    suggestedPrice,
+    minPrice: marketBased.minPrice || Math.round(costBased.totalCost),
+    maxPrice: marketBased.maxPrice || Math.round(costBased.floorPrice * 1.5),
+    medianPrice: marketBased.medianPrice || suggestedPrice,
+    confidenceScore,
+    breakdown: {
+      materialCost,
+      laborCost: costBased.laborCost,
+      totalCost: costBased.totalCost,
+      costFloor: costBased.floorPrice,
+      marketAvg: marketBased.marketPrice,
+      marketMin: marketBased.minPrice,
+      marketMax: marketBased.maxPrice,
+    },
   };
 };
 
@@ -66,25 +138,44 @@ exports.uploadProduct = async (req, res) => {
       return res.status(400).json({ message: 'Image is required' });
     }
 
-    // Create embedding (mock for now - replace with actual AI model)
+    const materialCost = parseFloat(cost) || 0;
+    const hours = parseFloat(hourSpent) || 0;
+
+    // Create embedding (mock for now — replace with actual AI model)
     const embedding = Array(512)
       .fill(0)
       .map(() => Math.random() - 0.5);
 
-    // Find similar products
+    // --- Gather market data from TWO sources ---
+
+    // Source 1: MarketDataset (external scraped data)
     const marketProducts = await MarketDataset.find().lean();
-
-    const similarProducts = marketProducts
+    const similarFromDataset = marketProducts
       .map((p) => ({
-        ...p,
+        price: p.price,
         similarity: cosineSimilarity(embedding, p.embedding),
+        source: 'dataset',
       }))
-      .filter((p) => p.similarity > 0.5)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 20);
+      .filter((p) => p.similarity > 0.3);
 
-    // Calculate pricing
-    const pricing = calculateSmartPrice(similarProducts);
+    // Source 2: Existing active products in same category on our marketplace
+    const categoryQuery = category ? { category, status: 'active' } : { status: 'active' };
+    const existingProducts = await Product.find(categoryQuery).lean();
+    const similarFromMarketplace = existingProducts
+      .map((p) => ({
+        price: p.finalPrice,
+        similarity: cosineSimilarity(embedding, p.embeddingVector),
+        source: 'marketplace',
+      }))
+      .filter((p) => p.similarity > 0.3);
+
+    // Combine and rank all similar products
+    const allSimilar = [...similarFromDataset, ...similarFromMarketplace]
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 30);
+
+    // --- Calculate smart price ---
+    const pricing = calculateSmartPrice(materialCost, hours, allSimilar);
 
     const product = new Product({
       userId: req.userId,
@@ -92,13 +183,13 @@ exports.uploadProduct = async (req, res) => {
       description,
       imageUrl,
       embeddingVector: embedding,
-      cost: parseFloat(cost) || 0,
-      hourSpent: parseFloat(hourSpent) || 0,
+      cost: materialCost,
+      hourSpent: hours,
       suggestedPrice: pricing.suggestedPrice,
       finalPrice: pricing.suggestedPrice,
       marketMinPrice: pricing.minPrice,
       marketMaxPrice: pricing.maxPrice,
-      marketMedianPrice: Math.round((pricing.minPrice + pricing.maxPrice) / 2),
+      marketMedianPrice: pricing.medianPrice,
       confidenceScore: pricing.confidenceScore,
       category,
     });
@@ -107,8 +198,10 @@ exports.uploadProduct = async (req, res) => {
 
     res.json({
       product,
-      similarProducts: similarProducts.slice(0, 5),
-      pricing,
+      pricing: {
+        ...pricing,
+        similarProductsUsed: allSimilar.length,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

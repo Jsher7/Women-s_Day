@@ -20,9 +20,12 @@ const Navbar = () => {
           🎨 CraftLens AI
         </Link>
 
-        <div className="hidden md:flex space-x-6">
+        <div className="hidden md:flex space-x-6 items-center">
           <Link to="/" className="hover:text-gray-200 transition">
             Home
+          </Link>
+          <Link to="/marketplace" className="hover:text-gray-200 transition">
+            Marketplace
           </Link>
           {isAuthenticated ? (
             <>
@@ -34,6 +37,9 @@ const Navbar = () => {
               </Link>
               <Link to="/analytics" className="hover:text-gray-200 transition">
                 Analytics
+              </Link>
+              <Link to="/orders" className="hover:text-gray-200 transition">
+                My Orders
               </Link>
               <button
                 onClick={handleLogout}
@@ -66,19 +72,25 @@ const Navbar = () => {
 
       {menuOpen && (
         <div className="md:hidden bg-purple-700 px-4 py-3 space-y-2">
-          <Link to="/" className="block hover:text-gray-200">
+          <Link to="/" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
             Home
+          </Link>
+          <Link to="/marketplace" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
+            Marketplace
           </Link>
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="block hover:text-gray-200">
+              <Link to="/dashboard" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
                 Dashboard
               </Link>
-              <Link to="/products" className="block hover:text-gray-200">
+              <Link to="/products" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
                 Products
               </Link>
-              <Link to="/analytics" className="block hover:text-gray-200">
+              <Link to="/analytics" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
                 Analytics
+              </Link>
+              <Link to="/orders" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
+                My Orders
               </Link>
               <button onClick={handleLogout} className="block w-full text-left hover:text-gray-200">
                 Logout
@@ -86,10 +98,10 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <Link to="/login" className="block hover:text-gray-200">
+              <Link to="/login" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
                 Login
               </Link>
-              <Link to="/register" className="block hover:text-gray-200">
+              <Link to="/register" className="block hover:text-gray-200" onClick={() => setMenuOpen(false)}>
                 Sign Up
               </Link>
             </>

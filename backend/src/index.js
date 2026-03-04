@@ -21,6 +21,8 @@ connectDB();
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/pricing', require('./routes/pricingRoutes'));
+app.use('/api/marketplace', require('./routes/marketplaceRoutes'));
+app.use('/api/orders', require('./routes/orderRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

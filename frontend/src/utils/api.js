@@ -41,4 +41,18 @@ export const pricingAPI = {
   getPriceAnalytics: () => api.get('/pricing/analytics'),
 };
 
+// Marketplace APIs (public)
+export const marketplaceAPI = {
+  browse: (params) => api.get('/marketplace', { params }),
+  getProduct: (id) => api.get(`/marketplace/${id}`),
+  getSimilar: (id) => api.get(`/marketplace/${id}/similar`),
+  getCategories: () => api.get('/marketplace/categories'),
+};
+
+// Order APIs (auth required)
+export const orderAPI = {
+  placeOrder: (data) => api.post('/orders', data),
+  getMyOrders: () => api.get('/orders'),
+};
+
 export default api;
