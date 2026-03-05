@@ -15,7 +15,7 @@ COPY src ./src
 RUN mkdir -p uploads
 
 # Expose port
-EXPOSE 5000
+EXPOSE 8000
 
 # Start application
 CMD ["node", "src/index.js"]

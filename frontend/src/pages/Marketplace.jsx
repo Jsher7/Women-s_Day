@@ -95,8 +95,8 @@ const Marketplace = () => {
                                 key={cat.value}
                                 onClick={() => setCategory(cat.value)}
                                 className={`px-4 py-2 rounded-full font-medium text-sm transition-all ${category === cat.value
-                                        ? 'bg-purple-600 text-white shadow-md scale-105'
-                                        : 'bg-white text-gray-700 hover:bg-purple-50 hover:text-purple-600 border border-gray-200'
+                                    ? 'bg-purple-600 text-white shadow-md scale-105'
+                                    : 'bg-white text-gray-700 hover:bg-purple-50 hover:text-purple-600 border border-gray-200'
                                     }`}
                             >
                                 {cat.label}
@@ -143,16 +143,16 @@ const Marketplace = () => {
                                 <div className="relative h-48 bg-gradient-to-br from-purple-50 to-pink-50 overflow-hidden">
                                     {product.imageUrl && product.imageUrl !== '/uploads/placeholder.jpg' ? (
                                         <img
-                                            src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}${product.imageUrl}`}
+                                            src={product.imageUrl.startsWith('http') ? product.imageUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '')}${product.imageUrl}`}
                                             alt={product.name}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
                                             <span className="text-5xl">
-                                                {product.category === 'embroidery' ? '🧵' :
-                                                    product.category === 'crochet' ? '🧶' :
-                                                        product.category === 'jewelry' ? '💍' : '🎨'}
+                                                {product.category?.toLowerCase() === 'embroidery' ? '🧵' :
+                                                    product.category?.toLowerCase() === 'crochet' ? '🧶' :
+                                                        product.category?.toLowerCase() === 'jewelry' ? '💍' : '🎨'}
                                             </span>
                                         </div>
                                     )}

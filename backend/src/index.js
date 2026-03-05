@@ -8,6 +8,12 @@ dotenv.config();
 
 const app = express();
 
+// Ensure uploads directory exists
+const fs = require('fs');
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -35,7 +41,25 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: err.message || 'Something went wrong' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 8000;
+const server = app.listen(PORT, () => {
   console.log(`🚀 CraftLens AI Server running on port ${PORT}`);
 });
+
+// Handle graceful shutdown to clear the port
+const shutdown = () => {
+  console.log(`\\n🛑 Shutting down server on port ${PORT}...`);
+  server.close(() => {
+    console.log('✅ Port cleared and server closed cleanly.');
+    process.exit(0);
+  });
+
+  // Force close after 5 seconds if not closed gracefully
+  setTimeout(() => {
+    console.log('⚠️ Forcing server shutdown...');
+    process.exit(1);
+  }, 5000);
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

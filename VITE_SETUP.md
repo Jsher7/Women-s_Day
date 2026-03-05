@@ -137,7 +137,7 @@ npm run dev -- --port 3001
 ```
 
 ### API Calls Failing?
-1. Check `.env.local` has `VITE_API_URL` set
+1. Check `.env.local` has `VITE_API_URL` set to 7000
 2. Verify backend running on expected port
 3. Check CORS enabled on backend
 

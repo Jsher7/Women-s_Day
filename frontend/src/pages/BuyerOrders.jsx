@@ -73,7 +73,7 @@ const BuyerOrders = () => {
                                             <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center overflow-hidden">
                                                 {product?.imageUrl && product.imageUrl !== '/uploads/placeholder.jpg' ? (
                                                     <img
-                                                        src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}${product.imageUrl}`}
+                                                        src={product.imageUrl.startsWith('http') ? product.imageUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '')}${product.imageUrl}`}
                                                         alt={product?.name}
                                                         className="w-full h-full object-cover"
                                                     />

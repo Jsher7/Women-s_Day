@@ -83,7 +83,7 @@ const Products = () => {
               <div key={product._id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
                 {product.imageUrl && (
                   <img
-                    src={`http://localhost:5000${product.imageUrl}`}
+                    src={`http://localhost:6000${product.imageUrl}`}
                     alt={product.name}
                     className="w-full h-48 object-cover"
                   />
@@ -165,13 +165,12 @@ const Products = () => {
                     <div className="flex justify-between">
                       <span>Status:</span>
                       <span
-                        className={`font-bold ${
-                          pricingDetails.fairness.status === 'fair'
+                        className={`font-bold ${pricingDetails.fairness.status === 'fair'
                             ? 'text-green-600'
                             : pricingDetails.fairness.status === 'underpriced'
                               ? 'text-orange-600'
                               : 'text-red-600'
-                        }`}
+                          }`}
                       >
                         {pricingDetails.fairness.status.toUpperCase()}
                       </span>

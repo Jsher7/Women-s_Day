@@ -4,7 +4,7 @@
  */
 const { execSync } = require('child_process');
 
-const port = process.argv[2] || process.env.PORT || 8000;
+const port = process.argv[2] || process.env.PORT || 6001;
 
 try {
     if (process.platform === 'win32') {

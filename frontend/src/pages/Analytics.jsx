@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { pricingAPI } from '../utils/api';
 import { FiBarChart2, FiTrendingUp, FiDollarSign, FiBox } from 'react-icons/fi';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
+
 
 const Analytics = () => {
   const [analytics, setAnalytics] = useState(null);
@@ -81,34 +86,56 @@ const Analytics = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold mb-6">Price Range Analysis</h2>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-700 font-semibold">Minimum Price</span>
-                <span className="text-lg font-bold text-red-600">₹{analytics.priceRange.min}</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-red-500 h-2 rounded-full" style={{ width: '20%' }}></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">Monthly Sales Revenue</h2>
+              <div className="h-64">
+                <Line
+                  data={{
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                      label: 'Revenue (₹)',
+                      data: [1200, 1900, 1500, 2200, 3100, 4500],
+                      borderColor: 'rgb(147, 51, 234)',
+                      backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                      tension: 0.4,
+                      fill: true
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                  }}
+                />
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-gray-700 font-semibold">Maximum Price</span>
-                <span className="text-lg font-bold text-green-600">₹{analytics.priceRange.max}</span>
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800">Sales by Category</h2>
+              <div className="h-64">
+                <Bar
+                  data={{
+                    labels: ['Embroidery', 'Crochet', 'Jewelry', 'DIY Crafts'],
+                    datasets: [{
+                      label: 'Units Sold',
+                      data: [45, 32, 60, 25],
+                      backgroundColor: [
+                        'rgba(147, 51, 234, 0.6)',
+                        'rgba(236, 72, 153, 0.6)',
+                        'rgba(59, 130, 246, 0.6)',
+                        'rgba(16, 185, 129, 0.6)'
+                      ],
+                      borderRadius: 4
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                  }}
+                />
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <p className="text-blue-700">
-                💡 <strong>Insight:</strong> Your products are priced between ₹{analytics.priceRange.min} and ₹
-                {analytics.priceRange.max}. Average selling price is ₹{analytics.averagePrice} with an average profit
-                margin of {analytics.averageProfitMargin}%.
-              </p>
             </div>
           </div>
         </div>

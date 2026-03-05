@@ -128,11 +128,74 @@ const calculateSmartPrice = (materialCost, hoursSpent, similarItems) => {
   };
 };
 
-// Upload Product with Image
-exports.uploadProduct = async (req, res) => {
+// Analyze Product for Smart Pricing (Preview)
+exports.analyzeProduct = async (req, res) => {
   try {
     const { name, description, cost, hourSpent, category } = req.body;
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : '';
+
+    if (!imageUrl) {
+      return res.status(400).json({ message: 'Image is required for analysis' });
+    }
+
+    const materialCost = parseFloat(cost) || 0;
+    const hours = parseFloat(hourSpent) || 0;
+
+    // Create embedding (mock for now)
+    const embedding = Array(512)
+      .fill(0)
+      .map(() => Math.random() - 0.5);
+
+    // Gather market data
+    const marketProducts = await MarketDataset.find().lean();
+    const similarFromDataset = marketProducts
+      .map((p) => ({
+        name: p.name,
+        price: p.price,
+        imageUrl: p.imageUrl,
+        similarity: cosineSimilarity(embedding, p.embedding),
+        source: p.source,
+      }))
+      .filter((p) => p.similarity > 0.2) // Lower threshold for analysis
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 5); // Just top 5 for the UI preview
+
+    const categoryQuery = category ? { category, status: 'active' } : { status: 'active' };
+    const existingProducts = await Product.find(categoryQuery).lean();
+    const similarFromMarketplace = existingProducts
+      .map((p) => ({
+        name: p.name,
+        price: p.finalPrice,
+        imageUrl: p.imageUrl,
+        similarity: cosineSimilarity(embedding, p.embeddingVector),
+        source: 'marketplace',
+      }))
+      .filter((p) => p.similarity > 0.2);
+
+    const allSimilar = [...similarFromDataset, ...similarFromMarketplace]
+      .sort((a, b) => b.similarity - a.similarity);
+
+    // Calculate smart price
+    const pricing = calculateSmartPrice(materialCost, hours, allSimilar);
+
+    res.json({
+      imageUrl,
+      pricing,
+      similarProducts: allSimilar.slice(0, 10), // Return top 10 matches
+      embedding // Return embedding to be sent back in final upload
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Final Upload Product (Confirm and Publish)
+exports.uploadProduct = async (req, res) => {
+  try {
+    const { name, description, cost, hourSpent, category, finalPrice, imageUrl: existingImageUrl, embedding: existingEmbedding } = req.body;
+
+    // If a new file was uploaded, use it. Otherwise use the existing from analysis.
+    const imageUrl = req.file ? `/uploads/${req.file.filename}` : existingImageUrl;
 
     if (!imageUrl) {
       return res.status(400).json({ message: 'Image is required' });
@@ -140,41 +203,35 @@ exports.uploadProduct = async (req, res) => {
 
     const materialCost = parseFloat(cost) || 0;
     const hours = parseFloat(hourSpent) || 0;
+    const price = parseFloat(finalPrice);
 
-    // Create embedding (mock for now — replace with actual AI model)
-    const embedding = Array(512)
-      .fill(0)
-      .map(() => Math.random() - 0.5);
+    if (isNaN(price)) {
+      return res.status(400).json({ message: 'A final price is required' });
+    }
 
-    // --- Gather market data from TWO sources ---
+    // Use existing embedding or create new one
+    let embedding = existingEmbedding;
+    if (!embedding || typeof embedding === 'string') {
+      try {
+        embedding = embedding ? JSON.parse(embedding) : null;
+      } catch (e) {
+        embedding = null;
+      }
+    }
 
-    // Source 1: MarketDataset (external scraped data)
+    if (!embedding) {
+      embedding = Array(512).fill(0).map(() => Math.random() - 0.5);
+    }
+
+    // Recalculate stats for the model fields (min/max/median) even if we use user's finalPrice
     const marketProducts = await MarketDataset.find().lean();
-    const similarFromDataset = marketProducts
-      .map((p) => ({
-        price: p.price,
-        similarity: cosineSimilarity(embedding, p.embedding),
-        source: 'dataset',
-      }))
-      .filter((p) => p.similarity > 0.3);
+    const existingProducts = await Product.find(category ? { category, status: 'active' } : { status: 'active' }).lean();
 
-    // Source 2: Existing active products in same category on our marketplace
-    const categoryQuery = category ? { category, status: 'active' } : { status: 'active' };
-    const existingProducts = await Product.find(categoryQuery).lean();
-    const similarFromMarketplace = existingProducts
-      .map((p) => ({
-        price: p.finalPrice,
-        similarity: cosineSimilarity(embedding, p.embeddingVector),
-        source: 'marketplace',
-      }))
-      .filter((p) => p.similarity > 0.3);
+    const allSimilar = [
+      ...marketProducts.map(p => ({ price: p.price, similarity: cosineSimilarity(embedding, p.embedding) })),
+      ...existingProducts.map(p => ({ price: p.finalPrice, similarity: cosineSimilarity(embedding, p.embeddingVector) }))
+    ].filter(p => p.similarity > 0.3);
 
-    // Combine and rank all similar products
-    const allSimilar = [...similarFromDataset, ...similarFromMarketplace]
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, 30);
-
-    // --- Calculate smart price ---
     const pricing = calculateSmartPrice(materialCost, hours, allSimilar);
 
     const product = new Product({
@@ -186,7 +243,7 @@ exports.uploadProduct = async (req, res) => {
       cost: materialCost,
       hourSpent: hours,
       suggestedPrice: pricing.suggestedPrice,
-      finalPrice: pricing.suggestedPrice,
+      finalPrice: price, // Use the user's chosen price
       marketMinPrice: pricing.minPrice,
       marketMaxPrice: pricing.maxPrice,
       marketMedianPrice: pricing.medianPrice,
@@ -196,12 +253,9 @@ exports.uploadProduct = async (req, res) => {
 
     await product.save();
 
-    res.json({
-      product,
-      pricing: {
-        ...pricing,
-        similarProductsUsed: allSimilar.length,
-      },
+    res.status(201).json({
+      message: 'Product published successfully',
+      product
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -46,6 +46,7 @@ const upload = multer({
   },
 });
 
+router.post('/analyze', auth, upload.single('image'), productController.analyzeProduct);
 router.post('/upload', auth, upload.single('image'), productController.uploadProduct);
 router.get('/', auth, productController.getUserProducts);
 router.get('/:id', auth, productController.getProduct);
